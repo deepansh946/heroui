@@ -16,6 +16,19 @@ interface ObserverWrapper {
 let observerStack: Array<ObserverWrapper> = [];
 
 /**
+ * Checks if the given element is or contains the currently focused element.
+ * This is used to prevent hiding elements that currently have focus.
+ *
+ * @param element - The element to check for focused descendants.
+ * @returns True if the element is or contains the currently focused (active) element, otherwise false.
+ */
+const hasFocusedDescendant = (element: Element): boolean => {
+  const activeElement = document.activeElement;
+
+  return activeElement ? element === activeElement || element.contains(activeElement) : false;
+};
+
+/**
  * Hides all elements in the DOM outside the given targets from screen readers using aria-hidden,
  * and returns a function to revert these changes. In addition, changes to the DOM are watched
  * and new elements outside the targets are automatically hidden.
@@ -57,6 +70,13 @@ export function ariaHideOutside(targets: Element[], root = document.body) {
         }
       }
 
+      // Skip elements that contain focused descendants to prevent aria-hidden warnings.
+      if (hasFocusedDescendant(node)) {
+        visibleNodes.add(node);
+
+        return NodeFilter.FILTER_REJECT;
+      }
+
       return NodeFilter.FILTER_ACCEPT;
     };
     let walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {acceptNode});
@@ -79,6 +99,13 @@ export function ariaHideOutside(targets: Element[], root = document.body) {
   };
 
   let hide = (node: Element) => {
+    // Skip hiding elements that contain focused descendants to prevent aria-hidden warnings.
+    if (hasFocusedDescendant(node)) {
+      visibleNodes.add(node);
+
+      return;
+    }
+
     let refCount = refCountMap.get(node) ?? 0;
 
     // If already aria-hidden, and the ref count is zero, then this element
@@ -126,7 +153,11 @@ export function ariaHideOutside(targets: Element[], root = document.body) {
           ) {
             visibleNodes.add(node);
           } else if (node instanceof Element) {
-            walk(node);
+            if (hasFocusedDescendant(node)) {
+              visibleNodes.add(node);
+            } else {
+              walk(node);
+            }
           }
         }
       }
@@ -148,8 +179,49 @@ export function ariaHideOutside(targets: Element[], root = document.body) {
 
   observerStack.push(observerWrapper);
 
+  const handleFocusIn = (event: FocusEvent) => {
+    if (observerStack.length === 0 || observerStack[observerStack.length - 1] !== observerWrapper) {
+      return;
+    }
+
+    const target = event.target as Element;
+
+    if (!target) {
+      return;
+    }
+
+    let current: Element | null = target;
+
+    while (current && current !== root) {
+      if (
+        current.getAttribute("aria-hidden") === "true" &&
+        hiddenNodes.has(current) &&
+        !visibleNodes.has(current)
+      ) {
+        const count = refCountMap.get(current);
+
+        if (count != null) {
+          hiddenNodes.delete(current);
+          visibleNodes.add(current);
+          current.removeAttribute("aria-hidden");
+
+          if (count === 1) {
+            refCountMap.delete(current);
+          } else {
+            refCountMap.set(current, count - 1);
+          }
+        }
+      }
+
+      current = current.parentElement;
+    }
+  };
+
+  root.addEventListener("focusin", handleFocusIn);
+
   return () => {
     observer.disconnect();
+    root.removeEventListener("focusin", handleFocusIn);
 
     for (let node of hiddenNodes) {
       let count = refCountMap.get(node);

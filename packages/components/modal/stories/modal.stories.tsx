@@ -22,6 +22,8 @@ import {
   useDisclosure,
   useDraggable,
 } from "../src";
+import {SelectItem} from "../../../core/react/src";
+import {Select} from "../../../core/react/src";
 
 export default {
   title: "Components/Modal",
@@ -317,6 +319,58 @@ const ModalWithAutocompleteTemplate = (args: ModalProps) => {
   );
 };
 
+const ModalWithAriaHiddenBug = () => {
+  const {onOpen, isOpen, onOpenChange} = useDisclosure();
+
+  return (
+    <>
+      <Button color="primary" onPress={onOpen}>
+        Open Modal
+      </Button>
+      <Modal isOpen={isOpen} placement="top-center" onOpenChange={onOpenChange}>
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">Test modal</ModalHeader>
+              <ModalBody>
+                <Select
+                  isRequired
+                  defaultSelectedKeys={["en"]}
+                  label="Langauge"
+                  placeholder={"Select Language"}
+                >
+                  <SelectItem key="en">{"English"}</SelectItem>
+                  <SelectItem key="uk">{"Ukrainian"}</SelectItem>
+                </Select>
+                <div className="flex py-2 px-1 justify-between">
+                  <Checkbox
+                    classNames={{
+                      label: "text-small",
+                    }}
+                  >
+                    Remember me
+                  </Checkbox>
+                  <Link color="primary" href="#" size="sm">
+                    Forgot password?
+                  </Link>
+                </div>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="flat" onPress={onClose}>
+                  Close
+                </Button>
+                <Button color="primary" onPress={onClose}>
+                  Save
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+    </>
+  );
+};
+
 export const Default = {
   render: Template,
 
@@ -424,6 +478,13 @@ export const WithShouldBlockScroll = {
 
 export const WithAutocomplete = {
   render: ModalWithAutocompleteTemplate,
+  args: {
+    ...defaultProps,
+  },
+};
+
+export const WithAriaHiddenBug = {
+  render: ModalWithAriaHiddenBug,
   args: {
     ...defaultProps,
   },

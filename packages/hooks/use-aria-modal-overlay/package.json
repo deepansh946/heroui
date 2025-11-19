@@ -34,6 +34,7 @@
     "postpack": "clean-package restore"
   },
   "dependencies": {
+    "@heroui/aria-utils": "workspace:*",
     "@heroui/use-aria-overlay": "workspace:*",
     "@react-aria/overlays": "3.30.0",
     "@react-aria/utils": "3.31.0",
